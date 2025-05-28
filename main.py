@@ -122,6 +122,9 @@ class GUI:
         # コート中央寄せのためのXオフセットを初期化
         self.x_offset_for_centering_px = 0
 
+        # デバッグ表示フラグ (mキーで切り替え)
+        self.show_debug_vectors = True
+
         self._update_drawing_parameters()
 
         # UDPリスナーの初期化と開始
@@ -338,13 +341,97 @@ class GUI:
             pygame.draw.circle(self.screen, config.COLOR_BALL,
                                (center_x_s, center_y_s), ball_radius_px)
 
+    def draw_robot_velocity_arrow(self, robot_data):
+        """ロボットの目標速度を矢印で描画する"""
+        if "target_move_angle" in robot_data and \
+           "target_move_speed" in robot_data and \
+           robot_data["pos"] is not None:
+
+            vx = math.cos(math.radians(robot_data["target_move_angle"] + robot_data["angle"])) * \
+                robot_data["target_move_speed"]
+            vy = math.sin(math.radians(robot_data["target_move_angle"] + robot_data["angle"])) * \
+                robot_data["target_move_speed"]
+
+            # --- デバッグ出力 ---
+            print(
+                f"target_move_angle: {robot_data['target_move_angle']:.2f}°, target_move_speed: {robot_data['target_move_speed']:.2f} m/s")
+            # print(
+            #     f"Robot ID {robot_data.get('id', 'N/A')}: vx={vx:.5f}, vy={vy:.5f}")
+            # --- ここまで ---
+
+            # 速度がほぼゼロの場合は矢印を描画しない
+            if abs(vx) < 1e-6 and abs(vy) < 1e-6:
+                return
+
+            robot_x_m, robot_y_m = robot_data["pos"]
+            start_x_s, start_y_s = self.world_to_screen_pos(
+                robot_x_m, robot_y_m)
+
+            # 速度ベクトルの大きさをピクセルに変換
+            velocity_magnitude_px = math.sqrt(
+                vx**2 + vy**2) * self.current_pixels_per_meter * config.VELOCITY_ARROW_SCALE
+
+            # 最小長を適用して、小さすぎる矢印を見えるようにする
+            if velocity_magnitude_px < config.MIN_VELOCITY_ARROW_LENGTH_PX:
+                velocity_magnitude_px = config.MIN_VELOCITY_ARROW_LENGTH_PX
+
+            # --- デバッグ出力 ---
+            print(f"  Calculated length: {velocity_magnitude_px:.5f}px")
+            # --- ここまで ---
+
+            # 矢印の方向をPygameの座標系に合わせて計算
+            # atan2(y, x) はX軸正を0度、反時計回り正の角度を返す。
+            # PygameのY軸は下向きが正なので、描画において数学的なCCW正の角度をそのまま使うと、
+            # 描画上の回転が反転して見える (CW正になる)。
+            # したがって、`atan2(vy, vx)`はPygameの描画において、
+            # ワールド座標のX軸正を0度、CW正の方向として解釈される。
+            arrow_angle_rad = math.atan2(vy, vx)
+
+            # 矢印の終点
+            end_x_s = start_x_s + velocity_magnitude_px * \
+                math.cos(arrow_angle_rad)
+            end_y_s = start_y_s + velocity_magnitude_px * \
+                math.sin(arrow_angle_rad)
+
+            # 矢印本体
+            pygame.draw.line(self.screen, config.COLOR_DEBUG_VECTOR,
+                             # 太さ2
+                             (start_x_s, start_y_s), (int(end_x_s), int(end_y_s)), 2)
+
+            # 矢印のヘッド
+            arrowhead_size = 8  # 矢印ヘッドのサイズ（ピクセル）
+            arrowhead_angle = math.pi / 6  # ヘッドの開き角度（30度）
+
+            # 矢印の先端から少し戻った点を計算
+            # これは矢印の頭を三角形で描画するための処理
+            back_x = end_x_s - arrowhead_size * math.cos(arrow_angle_rad)
+            back_y = end_y_s - arrowhead_size * math.sin(arrow_angle_rad)
+
+            # 矢印ヘッドの2つのポイント
+            # back_x, back_y から arrowhead_size の長さで、arrow_angle_rad から +/- arrowhead_angle の方向に伸びる点
+            point1_x = end_x_s - arrowhead_size * \
+                math.cos(arrow_angle_rad - arrowhead_angle)
+            point1_y = end_y_s - arrowhead_size * \
+                math.sin(arrow_angle_rad - arrowhead_angle)
+            point2_x = end_x_s - arrowhead_size * \
+                math.cos(arrow_angle_rad + arrowhead_angle)
+            point2_y = end_y_s - arrowhead_size * \
+                math.sin(arrow_angle_rad + arrowhead_angle)
+
+            pygame.draw.polygon(self.screen, config.COLOR_DEBUG_VECTOR,
+                                [(int(end_x_s), int(end_y_s)), (int(point1_x), int(point1_y)), (int(point2_x), int(point2_y))])
+
     def draw_match_state(self, yellow_robots, blue_robots, ball_pos):
         # Match State画面の描画
         self.draw_field()
         for robot_id, robot_data in yellow_robots.items():
             self.draw_robot(robot_data, config.COLOR_YELLOW_ROBOT)
+            if self.show_debug_vectors:  # mキーが押されている場合のみ矢印を描画
+                self.draw_robot_velocity_arrow(robot_data)
         for robot_id, robot_data in blue_robots.items():
             self.draw_robot(robot_data, config.COLOR_BLUE_ROBOT)
+            if self.show_debug_vectors:  # mキーが押されている場合のみ矢印を描画
+                self.draw_robot_velocity_arrow(robot_data)
         self.draw_ball(ball_pos)
 
     def draw_robot_states(self, yellow_robots, blue_robots):
@@ -496,6 +583,12 @@ class GUI:
                                     break
                                 y_offset += (button_cmd_height +
                                              button_cmd_spacing)
+                elif event.type == pygame.KEYDOWN:  # キーボード入力の検出
+                    if event.key == pygame.K_m:  # 'm' キーが押されたら
+                        self.show_debug_vectors = not self.show_debug_vectors  # フラグをトグル
+                        # 状態をコンソールに出力
+                        print(
+                            f"Debug vectors visibility: {self.show_debug_vectors}")
 
             # 画面クリア (全体を背景色で塗りつぶし)
             self.screen.fill(config.COLOR_BACKGROUND)
