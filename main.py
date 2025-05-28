@@ -3,10 +3,9 @@ import pygame
 import time
 import json
 import socket
-import math
 
 import config
-import sim_params
+import params
 from udp_listener import GUIUDPListener
 from gui_renderer import GUIRenderer
 
@@ -47,7 +46,7 @@ class GUI:
         self.udp_listener.start()
 
         # 緊急コマンド送信用のUDPソケット
-        self.emergency_sender_socket = socket.socket(
+        self.sender_socket = socket.socket(
             socket.AF_INET, socket.SOCK_DGRAM)
 
         # レンダラーの初期化
@@ -73,8 +72,8 @@ class GUI:
             self.content_start_y_px - self.current_screen_padding_px  # トップバーの高さを考慮
 
         # ワールド座標での表示領域の幅/高さ (コート + 壁オフセット)
-        world_display_width_m = config.COURT_WIDTH_M + 2 * sim_params.WALL_OFFSET_M
-        world_display_height_m = config.COURT_HEIGHT_M + 2 * sim_params.WALL_OFFSET_M
+        world_display_width_m = params.COURT_WIDTH_M + 2 * params.WALL_OFFSET_M
+        world_display_height_m = params.COURT_HEIGHT_M + 2 * params.WALL_OFFSET_M
 
         current_pixels_per_meter = 1.0
         if world_display_width_m > 0 and world_display_height_m > 0 and effective_width_px > 0 and effective_height_px > 0:
@@ -132,7 +131,7 @@ class GUI:
                                            start_x + i *
                                            (self.button_width +
                                             self.button_spacing),
-                                           self.button_spacing,  # Y座標は画面上部からのマージン
+                                           self.button_spacing,
                                            self.button_width,
                                            self.button_height,
                                            i == self.current_view_index)
@@ -224,9 +223,7 @@ class GUI:
 
         # コマンドボタンの定義
         commands = [
-            ("Stop All Robots", "stop_all_robots"),
-            ("Reset Ball Position", "reset_ball"),
-            ("Toggle Debug Vectors", "toggle_debug_vectors")
+            ("Stop All Robots", "stop_all_robots")
         ]
 
         button_x = (self.current_screen_width_px - 200) // 2  # 中央に配置
@@ -243,16 +240,16 @@ class GUI:
 
             y_offset += (button_cmd_height + button_cmd_spacing)
 
-    def send_emergency_command(self, command_type):
+    def send_command(self, command_type):
         # 緊急コマンドをシミュレータに送信
         payload = {
-            "type": "emergency_command",
+            "type": "gui_command",
             "timestamp": int(time.time() * 1000),
             "command": command_type
         }
         try:
             message = json.dumps(payload).encode('utf-8')
-            self.emergency_sender_socket.sendto(
+            self.sender_socket.sendto(
                 message, (config.CONTROLLER_IP, config.EMERGENCY_COMMAND_SEND_PORT))
             print(f"Sent emergency command: {command_type}")
         except Exception as e:
@@ -294,15 +291,13 @@ class GUI:
                             button_cmd_spacing = 20
 
                             commands = [
-                                ("Stop All Robots", "stop_all_robots"),
-                                ("Reset Ball Position", "reset_ball"),
-                                ("Toggle Debug Vectors", "toggle_debug_vectors")
+                                ("Stop All Robots", "stop_all_robots")
                             ]
                             for text, command_key in commands:
                                 cmd_rect = pygame.Rect(
                                     button_x, y_offset, button_cmd_width, button_cmd_height)
                                 if cmd_rect.collidepoint(event.pos):
-                                    self.send_emergency_command(command_key)
+                                    self.send_command(command_key)
                                     break
                                 y_offset += (button_cmd_height +
                                              button_cmd_spacing)
@@ -345,7 +340,7 @@ class GUI:
     def cleanup(self):
         print("GUI shutting down...")
         self.udp_listener.stop()
-        self.emergency_sender_socket.close()
+        self.sender_socket.close()
         pygame.quit()
         sys.exit()
 

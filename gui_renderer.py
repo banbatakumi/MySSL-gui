@@ -1,7 +1,7 @@
 import pygame
 import math
 import config  # config.pyから設定をインポート
-import sim_params  # sim_params.pyから物理パラメータをインポート
+import params  # sim_params.pyから物理パラメータをインポート
 
 
 class GUIRenderer:
@@ -27,8 +27,8 @@ class GUIRenderer:
         GUIクラスの同名メソッドをここに移動し、selfのパラメータを使用するように変更。
         """
         # フィールド全体の描画領域の左下端のワールド座標を計算
-        world_display_width_m = config.COURT_WIDTH_M + 2 * sim_params.WALL_OFFSET_M
-        world_display_height_m = config.COURT_HEIGHT_M + 2 * sim_params.WALL_OFFSET_M
+        world_display_width_m = params.COURT_WIDTH_M + 2 * params.WALL_OFFSET_M
+        world_display_height_m = params.COURT_HEIGHT_M + 2 * params.WALL_OFFSET_M
 
         world_origin_x_m = -(world_display_width_m / 2.0)
         world_origin_y_m = -(world_display_height_m / 2.0)
@@ -47,7 +47,7 @@ class GUIRenderer:
 
     def draw_field(self):
         """フィールドの描画"""
-        hw_m, hh_m = config.COURT_WIDTH_M / 2.0, config.COURT_HEIGHT_M / 2.0
+        hw_m, hh_m = params.COURT_WIDTH_M / 2.0, params.COURT_HEIGHT_M / 2.0
 
         # フィールドラインの左上スクリーン座標
         field_tl_x_m = -hw_m
@@ -56,9 +56,9 @@ class GUIRenderer:
             field_tl_x_m, field_tl_y_m)
 
         field_lines_w_px = max(
-            1, int(config.COURT_WIDTH_M * self.current_pixels_per_meter))
+            1, int(params.COURT_WIDTH_M * self.current_pixels_per_meter))
         field_lines_h_px = max(
-            1, int(config.COURT_HEIGHT_M * self.current_pixels_per_meter))
+            1, int(params.COURT_HEIGHT_M * self.current_pixels_per_meter))
 
         if field_lines_w_px > 0 and field_lines_h_px > 0:
             pygame.draw.rect(self.screen, config.COLOR_FIELD_LINES,
@@ -66,14 +66,14 @@ class GUIRenderer:
                               field_lines_w_px, field_lines_h_px),
                              config.FIELD_MARKING_WIDTH_PX)
 
-        # センターサークル
-        cx_s, cy_s = self.world_to_screen_pos(0, 0)
-        center_circle_radius_m = 0.25  # SSLセンターサークル半径
-        cc_r_px = int(center_circle_radius_m * self.current_pixels_per_meter)
+       # センターサークル
+        cx_s, cy_s = self.world_to_screen_pos(0, 0)  # 中心点
+        cc_r_px = int(params.CENTER_CIRCLE_RADIUS_M *
+                      self.current_pixels_per_meter)
         if cc_r_px >= config.FIELD_MARKING_WIDTH_PX:
             pygame.draw.circle(self.screen, config.COLOR_FIELD_LINES,
                                (cx_s, cy_s), cc_r_px, config.FIELD_MARKING_WIDTH_PX)
-        elif cc_r_px > 0:
+        elif cc_r_px > 0:  # 線幅が太すぎる場合は塗りつぶし
             pygame.draw.circle(
                 self.screen, config.COLOR_FIELD_LINES, (cx_s, cy_s), cc_r_px)
 
@@ -82,15 +82,102 @@ class GUIRenderer:
         cl_bot_s = self.world_to_screen_pos(0, -hh_m)
         pygame.draw.line(self.screen, config.COLOR_FIELD_LINES,
                          cl_top_s, cl_bot_s, config.FIELD_MARKING_WIDTH_PX)
+        cl_left_s = self.world_to_screen_pos(hw_m, 0)
+        cl_right_s = self.world_to_screen_pos(-hw_m, 0)
+        pygame.draw.line(self.screen, config.COLOR_FIELD_LINES,
+                         cl_left_s, cl_right_s, config.FIELD_MARKING_WIDTH_PX)
+
+        # ゴールエリア（白色）
+        goal_area_w = params.GOAL_AREA_WIDTH_M
+        goal_area_h = params.GOAL_AREA_HEIGHT_M
+
+        # 左ゴールエリア
+        ga_left_x1 = -params.COURT_WIDTH_M / 2
+        ga_left_x2 = ga_left_x1 + goal_area_h
+        ga_y1 = goal_area_w / 2
+        ga_y2 = -goal_area_w / 2
+        ga_left_rect_topleft = self.world_to_screen_pos(ga_left_x1, ga_y1)
+        ga_left_rect_bottomright = self.world_to_screen_pos(ga_left_x2, ga_y2)
+        pygame.draw.rect(
+            self.screen,
+            config.COLOR_FIELD_LINES,
+            pygame.Rect(
+                min(ga_left_rect_topleft[0], ga_left_rect_bottomright[0]),
+                min(ga_left_rect_topleft[1], ga_left_rect_bottomright[1]),
+                abs(ga_left_rect_bottomright[0] - ga_left_rect_topleft[0]),
+                abs(ga_left_rect_bottomright[1] - ga_left_rect_topleft[1])
+            ),
+            config.FIELD_MARKING_WIDTH_PX
+        )
+
+        # 右ゴールエリア
+        ga_right_x2 = params.COURT_WIDTH_M / 2
+        ga_right_x1 = ga_right_x2 - goal_area_h
+        ga_right_rect_topleft = self.world_to_screen_pos(ga_right_x1, ga_y1)
+        ga_right_rect_bottomright = self.world_to_screen_pos(
+            ga_right_x2, ga_y2)
+        pygame.draw.rect(
+            self.screen,
+            config.COLOR_FIELD_LINES,
+            pygame.Rect(
+                min(ga_right_rect_topleft[0], ga_right_rect_bottomright[0]),
+                min(ga_right_rect_topleft[1], ga_right_rect_bottomright[1]),
+                abs(ga_right_rect_bottomright[0] - ga_right_rect_topleft[0]),
+                abs(ga_right_rect_bottomright[1] - ga_right_rect_topleft[1])
+            ),
+            config.FIELD_MARKING_WIDTH_PX
+        )
+
+        # ゴール（黒色）
+        goal_w = params.GOAL_WIDTH   # ゴールの幅（Y方向）
+        goal_h = params.GOAL_HEIGHT  # ゴールの厚み（X方向）
+
+        # 左ゴール
+        left_goal_center_x = -params.COURT_WIDTH_M / 2 - goal_h / 2
+        left_goal_rect_topleft = self.world_to_screen_pos(
+            left_goal_center_x - goal_h / 2,  goal_w / 2)
+        left_goal_rect_bottomright = self.world_to_screen_pos(
+            left_goal_center_x + goal_h / 2, -goal_w / 2)
+        pygame.draw.rect(
+            self.screen,
+            config.COLOR_GOAL,
+            pygame.Rect(
+                min(left_goal_rect_topleft[0], left_goal_rect_bottomright[0]),
+                min(left_goal_rect_topleft[1], left_goal_rect_bottomright[1]),
+                abs(left_goal_rect_bottomright[0] - left_goal_rect_topleft[0]),
+                abs(left_goal_rect_bottomright[1] - left_goal_rect_topleft[1])
+            )
+        )
+
+        # 右ゴール
+        right_goal_center_x = params.COURT_WIDTH_M / 2 + goal_h / 2
+        right_goal_rect_topleft = self.world_to_screen_pos(
+            right_goal_center_x - goal_h / 2,  goal_w / 2)
+        right_goal_rect_bottomright = self.world_to_screen_pos(
+            right_goal_center_x + goal_h / 2, -goal_w / 2)
+        pygame.draw.rect(
+            self.screen,
+            config.COLOR_GOAL,
+            pygame.Rect(
+                min(right_goal_rect_topleft[0],
+                    right_goal_rect_bottomright[0]),
+                min(right_goal_rect_topleft[1],
+                    right_goal_rect_bottomright[1]),
+                abs(right_goal_rect_bottomright[0] -
+                    right_goal_rect_topleft[0]),
+                abs(right_goal_rect_bottomright[1] -
+                    right_goal_rect_topleft[1])
+            )
+        )
 
         # 壁
         wall_line_thickness_px = config.WALL_LINE_WIDTH_PX
-        wall_top_y_m = config.COURT_HEIGHT_M / 2.0 + sim_params.WALL_OFFSET_M
-        wall_bottom_y_m = - (config.COURT_HEIGHT_M /
-                             2.0 + sim_params.WALL_OFFSET_M)
-        wall_left_x_m = - (config.COURT_WIDTH_M / 2.0 +
-                           sim_params.WALL_OFFSET_M)
-        wall_right_x_m = config.COURT_WIDTH_M / 2.0 + sim_params.WALL_OFFSET_M
+        wall_top_y_m = params.COURT_HEIGHT_M / 2.0 + params.WALL_OFFSET_M
+        wall_bottom_y_m = - (params.COURT_HEIGHT_M /
+                             2.0 + params.WALL_OFFSET_M)
+        wall_left_x_m = - (params.COURT_WIDTH_M / 2.0 +
+                           params.WALL_OFFSET_M)
+        wall_right_x_m = params.COURT_WIDTH_M / 2.0 + params.WALL_OFFSET_M
 
         wall_top_left_s = self.world_to_screen_pos(wall_left_x_m, wall_top_y_m)
         wall_top_right_s = self.world_to_screen_pos(
@@ -115,7 +202,7 @@ class GUIRenderer:
             x, y = robot_data["pos"]
             angle_for_pygame_rad = math.radians(robot_data["angle"])
 
-            robot_radius_px = int(sim_params.ROBOT_RADIUS_M *
+            robot_radius_px = int(params.ROBOT_RADIUS_M *
                                   self.current_pixels_per_meter)
             if robot_radius_px < 1:
                 robot_radius_px = 1
@@ -143,7 +230,7 @@ class GUIRenderer:
         """ボールの描画"""
         if ball_pos:
             x, y = ball_pos
-            ball_radius_px = int(sim_params.BALL_RADIUS_M *
+            ball_radius_px = int(params.BALL_RADIUS_M *
                                  self.current_pixels_per_meter)
             if ball_radius_px < 1:
                 ball_radius_px = 1
@@ -191,19 +278,3 @@ class GUIRenderer:
             # 矢印本体
             pygame.draw.line(self.screen, config.COLOR_DEBUG_VECTOR,
                              (start_x_s, start_y_s), (int(end_x_s), int(end_y_s)), 2)
-
-            # 矢印のヘッド
-            arrowhead_size = 8  # 矢印ヘッドのサイズ（ピクセル）
-            arrowhead_angle = math.pi / 6  # ヘッドの開き角度（30度）
-
-            point1_x = end_x_s - arrowhead_size * \
-                math.cos(arrow_angle_rad - arrowhead_angle)
-            point1_y = end_y_s - arrowhead_size * \
-                math.sin(arrow_angle_rad - arrowhead_angle)
-            point2_x = end_x_s - arrowhead_size * \
-                math.cos(arrow_angle_rad + arrowhead_angle)
-            point2_y = end_y_s - arrowhead_size * \
-                math.sin(arrow_angle_rad + arrowhead_angle)
-
-            pygame.draw.polygon(self.screen, config.COLOR_DEBUG_VECTOR,
-                                [(int(end_x_s), int(end_y_s)), (int(point1_x), int(point1_y)), (int(point2_x), int(point2_y))])
