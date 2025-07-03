@@ -164,7 +164,7 @@ class GUI:
         y_offset = self.content_start_y_px + 20  # コンテンツ開始Y座標からさらにマージン
 
         header_text = ["ID", "Team", "Pos (m)", "Angle (deg)", "Voltage (V)",
-                       "Photo F", "Photo B", "Ball Rel Angle (deg)", "Ball Dist (m)"]
+                       "Photo F", "Photo B"]
         col_widths = [50, 70, 150, 120, 100, 80, 80, 150, 100]  # カラムの幅
 
         # ヘッダーの描画
@@ -181,6 +181,7 @@ class GUI:
             all_robots.append(("yellow", data))
         for robot_id_str, data in blue_robots.items():
             all_robots.append(("blue", data))
+        print(f"Total robots: {len(all_robots)}")
 
         # ロボットデータをソート (ID順)
         all_robots.sort(key=lambda x: (x[0], int(x[1]["id"])))
@@ -196,13 +197,9 @@ class GUI:
             voltage_str = f"{robot_data.get('voltage', 0.0):.2f}"
             photo_f_str = "ON" if robot_data.get("photo_front") else "OFF"
             photo_b_str = "ON" if robot_data.get("photo_back") else "OFF"
-            ball_rel_angle_str = f"{robot_data.get('ball_relative_angle', 0.0):.1f}" if robot_data.get(
-                'ball_relative_angle') is not None else "N/A"
-            ball_dist_str = f"{robot_data.get('ball_relative_distance', 0.0):.2f}" if robot_data.get(
-                'ball_relative_distance') is not None else "N/A"
 
             row_data = [id_str, team.capitalize(), pos_str, angle_str, voltage_str,
-                        photo_f_str, photo_b_str, ball_rel_angle_str, ball_dist_str]
+                        photo_f_str, photo_b_str]
 
             for i, data_str in enumerate(row_data):
                 text_surf = self.font.render(data_str, True, config.COLOR_TEXT)

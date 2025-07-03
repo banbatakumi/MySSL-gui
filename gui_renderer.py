@@ -226,6 +226,72 @@ class GUIRenderer:
             id_rect = id_surf.get_rect(center=(center_x_s, center_y_s))
             self.screen.blit(id_surf, id_rect)
 
+            self.screen.blit(id_surf, id_rect)
+
+            # ボールを持っている場合、前方3mに線を表示
+            if robot_data.get("photo_front"):
+                line_end_x = x + 2 * \
+                    math.cos(angle_for_pygame_rad)  # 前方3mのX座標
+                line_end_y = y + -2 * \
+                    math.sin(angle_for_pygame_rad)  # 前方3mのY座標
+                line_start_s = self.world_to_screen_pos(x, y)
+                line_end_s = self.world_to_screen_pos(line_end_x, line_end_y)
+                pygame.draw.line(
+                    self.screen, config.COLOR_WHITE, line_start_s, line_end_s, 2)
+
+           # x座標に応じた回転速度
+            max_x = params.COURT_WIDTH_M / 2  # フィールドの最大x座標
+            normalized_x = (x + max_x) / (2 * max_x)  # x座標を0～1に正規化
+            rotation_speed = max(1, min(normalized_x * 5, 5))  # 回転速度を0.5～5に制限
+
+            # ロボットの周りに回転する円
+            time_elapsed = pygame.time.get_ticks() / 1000.0  # 経過時間 (秒)
+            orbit_radius_px = robot_radius_px * 1.5  # 回転する円の半径
+
+            color = (255, 0, 0) if robot_data.get(
+                "photo_front") else config.COLOR_DEBUG_VECTOR
+
+            for i in range(20):  # 複数の円を描画
+                orbit_angle_rad = time_elapsed * rotation_speed + i * math.pi / 50  # 回転角度
+                orbit_x = center_x_s + orbit_radius_px * \
+                    math.cos(orbit_angle_rad)
+                orbit_y = center_y_s + orbit_radius_px * \
+                    math.sin(orbit_angle_rad)
+
+                pygame.draw.circle(self.screen, color,
+                                   (int(orbit_x), int(orbit_y)), 1)  # 回転する円の描画
+
+            for i in range(20):  # 複数の円を描画
+                orbit_angle_rad = time_elapsed * rotation_speed + \
+                    i * math.pi / 50 + math.pi * 0.5  # 回転角度
+                orbit_x = center_x_s + orbit_radius_px * \
+                    math.cos(orbit_angle_rad)
+                orbit_y = center_y_s + orbit_radius_px * \
+                    math.sin(orbit_angle_rad)
+
+                pygame.draw.circle(self.screen, color,
+                                   (int(orbit_x), int(orbit_y)), 1)  # 回転する円の描画
+            for i in range(20):  # 複数の円を描画
+                orbit_angle_rad = time_elapsed * rotation_speed + \
+                    i * math.pi / 50 + math.pi * 1  # 回転角度
+                orbit_x = center_x_s + orbit_radius_px * \
+                    math.cos(orbit_angle_rad)
+                orbit_y = center_y_s + orbit_radius_px * \
+                    math.sin(orbit_angle_rad)
+
+                pygame.draw.circle(self.screen, color,
+                                   (int(orbit_x), int(orbit_y)), 1)  # 回転する円の描画
+            for i in range(20):  # 複数の円を描画
+                orbit_angle_rad = time_elapsed * rotation_speed + \
+                    i * math.pi / 50 + math.pi * 1.5  # 回転角度
+                orbit_x = center_x_s + orbit_radius_px * \
+                    math.cos(orbit_angle_rad)
+                orbit_y = center_y_s + orbit_radius_px * \
+                    math.sin(orbit_angle_rad)
+
+                pygame.draw.circle(self.screen, color,
+                                   (int(orbit_x), int(orbit_y)), 1)  # 回転する円の描画
+
     def draw_ball(self, ball_pos):
         """ボールの描画"""
         if ball_pos:
@@ -238,6 +304,9 @@ class GUIRenderer:
             center_x_s, center_y_s = self.world_to_screen_pos(x, y)
             pygame.draw.circle(self.screen, config.COLOR_BALL,
                                (center_x_s, center_y_s), ball_radius_px)
+
+            pygame.draw.circle(self.screen, config.COLOR_BALL,
+                               (center_x_s, center_y_s), ball_radius_px*20, 1)
 
     def draw_robot_velocity_arrow(self, robot_data):
         """ロボットの目標速度を矢印で描画する"""
